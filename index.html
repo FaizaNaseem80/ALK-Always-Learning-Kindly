@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#020617">
+  <link rel="manifest" href="/manifest.json">
+  <title>ALK | Just For You</title>
+  
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Playfair+Display:italic,wght@700&display=swap');
+    
+    :root { --accent: #6366f1; }
+
+    body { 
+      font-family: 'Outfit', sans-serif; 
+      background-color: #020617; 
+      background-image: 
+        radial-gradient(circle at 0% 0%, rgba(79, 70, 229, 0.15) 0%, transparent 35%),
+        radial-gradient(circle at 100% 100%, rgba(124, 58, 237, 0.1) 0%, transparent 35%);
+      background-attachment: fixed;
+      color: #cbd5e1;
+      overflow-x: hidden;
+    }
+
+    .serif-title { font-family: 'Playfair Display', serif; }
+
+    .alk-card {
+      background: rgba(15, 23, 42, 0.4);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Chat Sidebar Styles */
+    #chatPanel {
+      transform: translateX(100%);
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      background: rgba(7, 10, 25, 0.95);
+      backdrop-filter: blur(20px);
+    }
+    #chatPanel.open { transform: translateX(0); }
+
+    .chat-bubble {
+      max-width: 85%;
+      padding: 0.75rem 1rem;
+      border-radius: 1.25rem;
+      font-size: 0.85rem;
+      margin-bottom: 0.5rem;
+      line-height: 1.4;
+    }
+    .chat-left { background: rgba(255, 255, 255, 0.05); color: #cbd5e1; align-self: flex-start; border-bottom-left-radius: 4px; }
+    .chat-right { background: #6366f1; color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
+
+    @media (max-width: 640px) {
+      .alk-card { padding: 1.5rem !important; border-radius: 2rem !important; }
+      .serif-title { font-size: 1.75rem !important; }
+    }
+
+    .reaction-pill {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(15px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-post { animation: fadeInUp 0.8s ease forwards; }
+    
+    .nav-dot {
+        width: 8px; height: 8px; background: #6366f1;
+        border-radius: 50%; display: inline-block;
+        box-shadow: 0 0 10px #6366f1;
+    }
+  </style>
+</head>
+
+<body class="antialiased">
+
+  <nav class="sticky top-0 z-50 py-4 md:py-6 px-6 md:px-8 flex justify-between items-center bg-slate-950/40 backdrop-blur-xl border-b border-white/5">
+    <div class="flex items-center gap-3">
+      <div class="bg-indigo-600 text-white w-9 h-9 rounded-xl flex items-center justify-center font-black text-lg shadow-lg">A</div>
+      <div class="flex flex-col">
+        <span class="font-bold tracking-tighter text-white text-lg leading-none">ALK</span>
+        <span class="text-[8px] text-indigo-400 font-bold uppercase tracking-widest mt-1">Always Learning Kindly</span>
+      </div>
+    </div>
+    
+    <button onclick="toggleChat()" class="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-400 hover:text-white transition-colors flex items-center gap-2">
+      <span class="relative flex h-2 w-2">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+      </span>
+      Message ALK
+    </button>
+  </nav>
+
+  <main class="max-w-2xl mx-auto px-5 py-12 md:py-20">
+    <header class="mb-16 text-center">
+      <h1 class="serif-title text-4xl md:text-6xl text-white mb-4 italic">Softly Curated, ALK</h1>
+      <p class="text-slate-500 text-sm md:text-base font-light max-w-xs mx-auto leading-relaxed">
+        A private digital garden for my thoughts and your learning.
+      </p>
+    </header>
+
+    <div id="postsContainer" class="space-y-10 md:space-y-16"></div>
+  </main>
+
+  <div id="chatPanel" class="fixed inset-y-0 right-0 w-full md:w-96 z-[100] border-l border-white/5 shadow-2xl flex flex-col">
+    <div class="p-6 border-b border-white/5 flex justify-between items-center">
+      <div>
+        <h3 class="serif-title text-xl text-white italic">Conversation</h3>
+        <p class="text-[9px] text-indigo-400 uppercase tracking-widest">Private & Direct</p>
+      </div>
+      <button onclick="toggleChat()" class="text-slate-500 hover:text-white transition-colors">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+    </div>
+
+    <div id="chatMessages" class="flex-1 overflow-y-auto p-6 flex flex-col">
+      </div>
+
+    <form id="chatForm" class="p-6 border-t border-white/5 bg-slate-950/50">
+      <div class="relative flex items-center">
+        <input type="text" id="chatInput" placeholder="Write a message..." 
+          class="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-all">
+        <button class="absolute right-2 p-2 text-indigo-500 hover:text-indigo-400 transition-colors">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    // --- FIREBASE CONFIG ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyBanQ6kJhkQimTUi6_oX1m3Sxgx0cI_WF8",
+      authDomain: "alk-ced65.firebaseapp.com",
+      projectId: "alk-ced65",
+      storageBucket: "alk-ced65.firebasestorage.app",
+      messagingSenderId: "1012596499542",
+      appId: "1:1012596499542:web:e6774a9ef0cb70fb4607f7"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // --- CHAT LOGIC ---
+    const chatPanel = document.getElementById('chatPanel');
+    const chatMessages = document.getElementById('chatMessages');
+    const chatForm = document.getElementById('chatForm');
+    const chatInput = document.getElementById('chatInput');
+
+    let myId = localStorage.getItem('chat_uid');
+    if (!myId) {
+      myId = 'soul_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('chat_uid', myId);
+    }
+
+    function toggleChat() {
+      chatPanel.classList.toggle('open');
+    }
+
+    // Listen for Private Messages
+    db.collection('messages')
+      .orderBy('createdAt', 'asc')
+      .onSnapshot(snapshot => {
+        chatMessages.innerHTML = '';
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          // Safety check for pending timestamps
+          if (!data.createdAt) return; 
+          
+          if (data.senderId === myId || data.receiverId === myId) {
+            const isMe = data.senderId === myId;
+            const div = document.createElement('div');
+            div.className = `chat-bubble ${isMe ? 'chat-right' : 'chat-left'}`;
+            div.textContent = data.text;
+            chatMessages.appendChild(div);
+          }
+        });
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      });
+
+    chatForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = chatInput.value.trim();
+      if (!text) return;
+      await db.collection('messages').add({
+        text: text,
+        senderId: myId,
+        receiverId: 'ADMIN',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      chatInput.value = '';
+    });
+
+    // --- POSTS LOGIC ---
+    let lastVisit = parseInt(localStorage.getItem('lastVisit')) || Date.now();
+
+    function displayPost(doc, isNew) {
+      const postData = doc.data();
+      const postId = doc.id;
+      const card = document.createElement('article');
+      card.className = "alk-card rounded-[2.5rem] p-8 md:p-10 animate-post relative";
+      const newTag = isNew ? `<span class="nav-dot absolute top-8 right-8"></span>` : '';
+
+      card.innerHTML = `
+        ${newTag}
+        <div class="mb-6">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="h-[1px] w-6 bg-indigo-500/50"></span>
+            <span class="text-[9px] font-bold uppercase tracking-[0.2em] text-indigo-400/80">${postData.date || 'Today'}</span>
+          </div>
+          <h2 class="serif-title text-2xl md:text-3xl text-white leading-tight">${postData.heading || 'Untitled'}</h2>
+        </div>
+        <p class="text-slate-300 text-base md:text-lg leading-relaxed font-light mb-6">${postData.message}</p>
+        <div class="reactions-list flex flex-wrap gap-2 mb-6"></div>
+        <div class="pt-6 border-t border-white/5 flex flex-col gap-4">
+          <div class="flex items-center gap-6 opacity-70">
+             <button onclick="quickReact('${postId}', '🤍')" class="hover:scale-125 transition">🤍</button>
+             <button onclick="quickReact('${postId}', '✨')" class="hover:scale-125 transition">✨</button>
+             <button onclick="quickReact('${postId}', '🌿')" class="hover:scale-125 transition">🌿</button>
+          </div>
+          <form class="reactionForm relative">
+            <input type="text" placeholder="Write a reply..." class="w-full bg-transparent border-b border-slate-800 py-2 text-sm focus:outline-none focus:border-indigo-500/50 transition text-slate-200">
+            <button class="absolute right-0 top-1 text-slate-500"><i class="fa-solid fa-chevron-right text-[10px]"></i></button>
+          </form>
+        </div>
+      `;
+      document.getElementById('postsContainer').appendChild(card);
+      
+      // Setup individual post reactions
+      const list = card.querySelector('.reactions-list');
+      db.collection('posts').doc(postId).collection('reactions').orderBy('createdAt', 'asc').onSnapshot(snap => {
+        list.innerHTML = '';
+        snap.forEach(r => {
+          const span = document.createElement('span');
+          span.className = "reaction-pill px-3 py-1 rounded-full text-[10px] text-slate-400";
+          span.textContent = r.data().message;
+          list.appendChild(span);
+        });
+      });
+
+      const rForm = card.querySelector('.reactionForm');
+      rForm.addEventListener('submit', e => {
+        e.preventDefault();
+        const inp = rForm.querySelector('input');
+        if(inp.value.trim()) {
+            submitReaction(postId, inp.value.trim());
+            inp.value = '';
+        }
+      });
+    }
+
+    async function submitReaction(postId, message) {
+      await db.collection('posts').doc(postId).collection('reactions').add({
+        message, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+    window.quickReact = (id, emoji) => submitReaction(id, emoji);
+
+    // Main Listener for Posts
+    db.collection('posts').orderBy('createdAt', 'desc').onSnapshot(snapshot => {
+      const container = document.getElementById('postsContainer');
+      container.innerHTML = '';
+      snapshot.forEach(doc => {
+        // Safety check: if createdAt hasn't synced from server yet, use 0
+        const postTime = doc.data().createdAt ? doc.data().createdAt.toDate().getTime() : Date.now();
+        const isNew = postTime > lastVisit;
+        displayPost(doc, isNew);
+      });
+    }, error => {
+      console.error("Firestore Error:", error);
+    });
+
+    // Save visit time
+    window.addEventListener('beforeunload', () => localStorage.setItem('lastVisit', Date.now()));
+</script>
+</body>
+</html>
